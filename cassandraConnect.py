@@ -10,9 +10,9 @@ class CassandraConnect:
     def get_data(self, time_range):
         now = datetime.datetime.now().replace(microsecond=0).isoformat()
         last_hour = (datetime.datetime.now() - datetime.timedelta(minutes=time_range)).replace(microsecond=0).isoformat()
-        rows = self.session.execute("SELECT artist, SUM(count) FROM TwitterTest WHERE date >= '"+last_hour+"' AND date <= '"+now+"' GROUP BY artist ALLOW FILTERING")
+        rows = self.session.execute("SELECT artist, SUM(count) as total_count FROM TwitterTest WHERE date >= '"+last_hour+"' AND date <= '"+now+"' GROUP BY artist ALLOW FILTERING")
         return rows
 
 
 
-# select artist from TwitterTest where date >= '2019-10-26T09:46:17' ALLOW FILTERING;
+# SELECT artist, count(count) from TwitterTest GROUP BY artist;
