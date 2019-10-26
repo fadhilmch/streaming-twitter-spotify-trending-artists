@@ -2,10 +2,10 @@ from cassandra.cluster import Cluster
 import datetime
 
 class CassandraConnect:
-    def __init__(self):
+    def __init__(self, keyspace):
         cluster = Cluster(['127.0.0.1'],port=9042)
-        self.session = cluster.connect('twitter_keyspace',wait_for_all_pools=True)
-        self.session.execute('USE twitter_keyspace')
+        self.session = cluster.connect(keyspace ,wait_for_all_pools=True)
+        self.session.execute('USE '+keyspace)
 
     def get_data(self, time_range):
         now = datetime.datetime.now().replace(microsecond=0).isoformat()
