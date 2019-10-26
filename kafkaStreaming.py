@@ -1,13 +1,33 @@
 from pyspark import SparkContext, SparkConf
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
-# from pyspark_cassandra import streaming
-import os
+import pyspark_cassandra
+from pyspark_cassandra import CassandraSparkContext
 import sys
 import json
 import re
-from SpotifyAPI import SpotifyAPI
+import datetime as dt
 
+import spotify_caller
+
+# define spark context and streaming context
+def define_context():
+    conf = SparkConf().setMaster("local[*]").setAppName("twitter-artist-count").set("spark.cassandra.connection.host", "127.0.0.1")
+    sc = CassandraSparkContext.getOrCreate(conf = conf)
+    sc.setCheckpointDir("./checkpoints")
+    ssc = StreamingContext(sc, 60)
+    return ssc
+
+# define kafka receiver (using receiver-less approach)
+def kafka_receiver(ssc, topic):
+    topic = [sys.argv[1]]
+    kafkaParams = {"metadata.broker.list": "localhost:9092",
+           "zookeeper.connect": "localhost:2181",
+           "group.id": "kafka-spark-streaming",
+           "zookeeper.connection.timeout.ms": "1000"}
+    return KafkaUtils.createDirectStream(ssc, topic, kafkaParams)
+
+# extract track id from url in tweet
 def get_track_id(urls):
     if(len(urls))>0:
         track_id = re.findall('(?<=track\/)[^.?]*',urls[0]['expanded_url'])
@@ -16,33 +36,28 @@ def get_track_id(urls):
         return False
     else:
         return False
-    
+
 if __name__ == "__main__":
-    os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages org.apache.spark:spark-streaming-kafka-0-8_2.11:2.1.1 pyspark-shell'
-    Spotify = SpotifyAPI()
+    # need spark-streaming-kafka and pyspark-cassandra package to run
+    # run the file with spark-submit --packages anguenot/pyspark-cassandra:2.4.0,org.apache.spark:spark-streaming-kafka-0-8_2.11:2.1.1 --conf spark.cassandra.connection.host=127.0.0.1 kafkaStreaming.py <topic_name>
 
-    # Create Streaming Context and set batch interval
-    conf = SparkConf().setMaster("local[*]").setAppName("twitter-sentiment")
-    sc = SparkContext.getOrCreate(conf = conf)
-#     sc.setLogLevel("WARN")
-    sc.setCheckpointDir("./checkpoints")
-    ssc = StreamingContext(sc, 5)
-
-    brokers = "localhost:9092"
+    # define streaming context and kafka receiver
+    ssc = define_context()
     topic = [sys.argv[1]]
-    kafkaParams = {"metadata.broker.list": "localhost:9092",
-           "zookeeper.connect": "localhost:2181",
-           "group.id": "kafka-spark-streaming",
-           "zookeeper.connection.timeout.ms": "1000"}
-    kafkaStream = KafkaUtils.createDirectStream(ssc, topic, kafkaParams)
-    tweet = kafkaStream.map(lambda value: json.loads(value[1])). \
-        map(lambda json_object: get_track_id(json_object["entities"]["urls"])). \
-        filter(lambda url: url!=False)
-    artist = tweet.map(lambda track: Spotify.get_track_information(track))
+    kafkaStream = kafka_receiver(ssc, topic)
+    Spotify = spotify_caller.SpotifyAPI()
 
-    # Do data cleaning and sentiment analysis
-    artist.pprint()
+    # extract track id for each incoming tweet and use the track id to get artist name using Spotify API
+    tweets = kafkaStream.map(lambda value: json.loads(value[1]))
+    #tweets.count().map(lambda count: "Tweets in this batch: %s" % count).pprint()
+    track_ids = tweets.map(lambda tweet: get_track_id(tweet["entities"]["urls"])).filter(lambda track: track!=False)
+    #track_ids.count().map(lambda count: "Tracks in this batch: %s" % count).pprint()
+    artists = track_ids.map(lambda track: Spotify.get_track_information(track))
+    artists_count = artists.countByValue()
 
-#     tweet.saveToCassandra("twitter_keyspace", "Twitter")
+    # construct rows for insertion to Cassandra
+    rows = artists_count.map(lambda artist: {"date":dt.datetime.now().replace(microsecond=0).isoformat(), "artist":artist[0], "count": artist[1]})
+    rows.foreachRDD(lambda x: x.saveToCassandra("spotify", "artistcount"))
+
     ssc.start()
     ssc.awaitTermination()
