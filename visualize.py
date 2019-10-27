@@ -6,6 +6,7 @@ import plotly.graph_objs as go
 import datetime
 import pandas as pd
 from cassandraConnect import CassandraConnect
+import base64
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -17,6 +18,12 @@ app_color = {
     "graph_line": "rgb(8, 70, 151)",
     "graph_font":"rgb(2, 29, 65)"
 }
+
+twitter_image = 'assets/a.png'
+encoded_twitter_image = base64.b64encode(open(twitter_image, 'rb').read())
+
+spotify_image = 'assets/spotify.png'
+encoded_spotify_image = base64.b64encode(open(spotify_image, 'rb').read())
 
 chart_colors = [
     '#664DFF',
@@ -58,8 +65,11 @@ app.layout = html.Div(
                             "TRENDING MUSIC ARTISTS ON TWITTER",
                         ),
                         html.P(
-                            "This app streams tweets about  music (open.spotify.com) in real time, then use Spotify API to get information about the music, and displays live charts to see the top trending artist",
+                            "This app streams tweets about  music (open.spotify.com) in real time, then use Spotify API to get information about the music, and displays live charts to see the top trending artist.",
                             className="app__header__title--grey",
+                        ),
+                        html.P(
+                            "Fadhil Mochammad (fahdilm@kth.se) - M. Irfan Handarbeni (handa@kth.se)",
                         ),
                     ],
                     className="app__header__desc",
@@ -69,7 +79,7 @@ app.layout = html.Div(
         html.Div(
                 [
                     html.Span(
-                        "Total number of tweets streamed during last 60 seconds: ",
+                        "Total number of tweets streamed during last hour: ",
                         className="font-weight-bold",
                     ),
                     html.Span(
@@ -141,6 +151,34 @@ app.layout = html.Div(
             interval=5*1000, # update once every second
             n_intervals=0
         ),
+        html.Div(
+            [
+                html.Div(
+                    [
+                        html.P(
+                            "Powered by",
+                            className="container",
+                            style={
+                                'margin-top':'5px',
+                                'font-size': '18px',
+                                'font-weight': '800'
+                            }
+                        ),
+                    ]
+
+                ),
+                html.Img(
+                    src='data:image/png;base64,{}'.format(encoded_twitter_image.decode()),
+                    style={'max-width': '100px', 'margin-right':'20px', 'height': '30px'}
+                ),
+                html.Img(
+                    src='data:image/png;base64,{}'.format(encoded_spotify_image.decode()),
+                    style={'max-width': '100px', 'margin-right':'20px', 'height': '30px'}
+                ),
+            ],
+            className='row float-right',
+            style={'margin-top': '10px'}
+        ),
     ],
     className='container mt-xl-5'
 )
@@ -185,7 +223,6 @@ def update_graph_bar(n):
             xaxis=dict(
                 tickfont=dict(
                     size=15,
-                    color='rgb(107, 107, 107)'
                 ),
                 autorange= True,
                 title= dict(
@@ -199,7 +236,7 @@ def update_graph_bar(n):
                 ),
                 autorange=True,
                 title=dict(
-                    text='Number of tweets',
+                    text='Artists',
                     font=dict(size=20)
                 )
             ),
@@ -209,7 +246,7 @@ def update_graph_bar(n):
             font={"color": app_color["graph_font"]},
             autosize=True,
             margin=go.layout.Margin(
-                l=200,
+                l=230,
                 r=25,
                 b=75,
                 t=55,
