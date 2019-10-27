@@ -12,6 +12,9 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 cassandra = CassandraConnect('spotify')
 minutes = 60 # number of minutes back to show
+table_name = 'artistshare'
+kafka_update_interval = 30
+refresh_rate = 5
 
 app_color = {
     "graph_bg": "rgb(221, 236, 255)",
@@ -62,10 +65,10 @@ app.layout = html.Div(
                 html.Div(
                     [
                         html.H1(
-                            "TRENDING MUSIC ARTISTS ON TWITTER",
+                            "TRENDING ARTISTS ON TWITTER",
                         ),
                         html.P(
-                            "This app streams tweets about  music (open.spotify.com) in real time, then use Spotify API to get information about the music, and displays live charts to see the top trending artist.",
+                            "This app streams music tweets from open.spotify.com in real time, then uses Spotify API to get information about the music and displays live charts to see the top trending artists.",
                             className="app__header__title--grey",
                         ),
                         html.P(
@@ -148,7 +151,7 @@ app.layout = html.Div(
         ),
         dcc.Interval(
             id='graph-update',
-            interval=5*1000, # update once every second
+            interval=refresh_rate*1000, # update once every second
             n_intervals=0
         ),
         html.Div(
@@ -188,7 +191,7 @@ app.layout = html.Div(
     [Input('graph-update', 'n_intervals')])
 def update_graph_bar(n):
     try:
-        rows = cassandra.get_data(minutes, 'artistcount')
+        rows = cassandra.get_data(minutes, table_name, kafka_update_interval)
 
         # Create dataframe
         df = []
@@ -248,7 +251,7 @@ def update_graph_bar(n):
             margin=go.layout.Margin(
                 l=230,
                 r=25,
-                b=75,
+                b=100,
                 t=55,
                 pad=4
             ),
@@ -268,7 +271,7 @@ def update_graph_bar(n):
 )
 def show_num_tweet(n):
     """ Display the number of tweets. """
-    rows = cassandra.get_data(minutes, 'artistcount')
+    rows = cassandra.get_data(minutes, table_name, kafka_update_interval)
 
     # Create dataframe
     df = []
