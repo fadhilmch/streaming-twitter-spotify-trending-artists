@@ -15,7 +15,7 @@ def define_context():
     conf = SparkConf().setMaster("local[*]").setAppName("twitter-artist-count").set("spark.cassandra.connection.host", "127.0.0.1")
     sc = CassandraSparkContext.getOrCreate(conf = conf)
     sc.setCheckpointDir("./checkpoints")
-    ssc = StreamingContext(sc, 60)
+    ssc = StreamingContext(sc, 30)
     return ssc
 
 # define kafka receiver (using receiver-less approach)
