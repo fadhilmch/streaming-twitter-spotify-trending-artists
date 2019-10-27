@@ -1,6 +1,7 @@
 from pyspark import SparkContext, SparkConf
 from pyspark.streaming import StreamingContext
 from pyspark.streaming.kafka import KafkaUtils
+from cassandra.cluster import Cluster
 import pyspark_cassandra
 from pyspark_cassandra import CassandraSparkContext
 import sys
@@ -42,6 +43,14 @@ if __name__ == "__main__":
     # need spark-streaming-kafka and pyspark-cassandra package to run
     # run the file with spark-submit --packages anguenot/pyspark-cassandra:2.4.0,org.apache.spark:spark-streaming-kafka-0-8_2.11:2.1.1 --conf spark.cassandra.connection.host=127.0.0.1 kafkaStreaming.py <topic_name>
 
+    # connect to Cassandra and create keyspace + table if don't exist
+    keyspace = "spotify"
+    table = "artistshare"
+    cluster = Cluster(['127.0.0.1'],port=9042)
+    session = cluster.connect(wait_for_all_pools=True)
+    session.execute("CREATE KEYSPACE IF NOT EXISTS " + keyspace + " WITH REPLICATION = {'class': 'SimpleStrategy', 'replication_factor' : 1};" )
+    session.execute("CREATE TABLE IF NOT EXISTS " + keyspace + "." +table + " (created_at timestamp, artist text, count int, PRIMARY KEY(artist, created_at));")
+
     # define streaming context and kafka receiver
     ssc = define_context()
     topic = [sys.argv[1]]
@@ -65,7 +74,7 @@ if __name__ == "__main__":
             replace(microsecond=0).isoformat(), "artist":artist["artist"], "count": 1})
     # write to Cassandra
     try:
-        rows.foreachRDD(lambda x: x.saveToCassandra("spotify", "artistshare"))
+        rows.foreachRDD(lambda x: x.saveToCassandra(keyspace, table))
     except Exception as e:
         print(f'Error: {e}')
 
