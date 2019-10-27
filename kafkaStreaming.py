@@ -57,7 +57,10 @@ if __name__ == "__main__":
 
     # construct rows for insertion to Cassandra
     rows = artists_count.map(lambda artist: {"date":dt.datetime.now().replace(microsecond=0).isoformat(), "artist":artist[0], "count": artist[1]})
-    rows.foreachRDD(lambda x: x.saveToCassandra("spotify", "artistcount"))
+    try:
+        rows.foreachRDD(lambda x: x.saveToCassandra("spotify", "artistcount"))
+    except Exception as e:
+        print(f'Error: {e}')
 
     ssc.start()
     ssc.awaitTermination()
