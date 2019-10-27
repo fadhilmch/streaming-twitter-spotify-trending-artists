@@ -7,6 +7,7 @@ import sys
 import json
 import re
 import datetime as dt
+from dateutil.parser import parse
 
 import spotify_caller
 
@@ -50,15 +51,21 @@ if __name__ == "__main__":
     # extract track id for each incoming tweet and use the track id to get artist name using Spotify API
     tweets = kafkaStream.map(lambda value: json.loads(value[1]))
     #tweets.count().map(lambda count: "Tweets in this batch: %s" % count).pprint()
-    track_ids = tweets.map(lambda tweet: get_track_id(tweet["entities"]["urls"])).filter(lambda track: track!=False)
+
+    track_ids = tweets.map(lambda tweet: {"track_id":get_track_id\
+                (tweet["entities"]["urls"]), "created_at":tweet["created_at"]}).\
+                filter(lambda track: track["track_id"]!=False)
     #track_ids.count().map(lambda count: "Tracks in this batch: %s" % count).pprint()
-    artists = track_ids.map(lambda track: Spotify.get_track_information(track))
-    artists_count = artists.countByValue()
+
+    artists = track_ids.map(lambda track: {"artist":Spotify.get_track_information\
+    (track["track_id"]), "created_at":track["created_at"]})
 
     # construct rows for insertion to Cassandra
-    rows = artists_count.map(lambda artist: {"date":dt.datetime.now().replace(microsecond=0).isoformat(), "artist":artist[0], "count": artist[1]})
+    rows = artists.map(lambda artist: {"created_at":parse(artist["created_at"]).\
+            replace(microsecond=0).isoformat(), "artist":artist["artist"], "count": 1})
+    # write to Cassandra
     try:
-        rows.foreachRDD(lambda x: x.saveToCassandra("spotify", "artistcount"))
+        rows.foreachRDD(lambda x: x.saveToCassandra("spotify", "artistshare"))
     except Exception as e:
         print(f'Error: {e}')
 
