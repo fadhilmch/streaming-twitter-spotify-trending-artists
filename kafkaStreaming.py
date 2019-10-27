@@ -67,7 +67,8 @@ if __name__ == "__main__":
     #track_ids.count().map(lambda count: "Tracks in this batch: %s" % count).pprint()
 
     artists = track_ids.map(lambda track: {"artist":Spotify.get_track_information\
-    (track["track_id"]), "created_at":track["created_at"]})
+    (track["track_id"]), "created_at":track["created_at"]}).\
+    filter(lambda artist: artist["artist"] != None)
 
     # construct rows for insertion to Cassandra
     rows = artists.map(lambda artist: {"created_at":parse(artist["created_at"]).\
