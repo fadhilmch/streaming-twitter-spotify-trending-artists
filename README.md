@@ -1,5 +1,5 @@
 # Streaming Trending Artists on Twitter
-Fadhil Mochammad (fadhilm@kth.se) - M. Irfan Handarbeni (handa@kth.se)
+Author: Fadhil Mochammad (fadhilm@kth.se), M. Irfan Handarbeni (handa@kth.se)
 
 ### Overview
 Twitter, as a social media platform has attracted millions of users to express their thoughts about a wide range of topics. Therefore, huge numbers of tweets are generated resulting in a stream of text data. For this project, we are specifically interested in finding tweets that share Spotify track. We process those tweets and get some information about the track using Spotify API. At the end, our goal is to use that acquired data with a specified time frame to find the trending artists on that particular time frame. We also want to make our project scalable, high-throughput, and fault-tolerance. To achieve this, we use cluster-computing frameworks which are: Kafka, Spark Streaming, and Cassandra. 
