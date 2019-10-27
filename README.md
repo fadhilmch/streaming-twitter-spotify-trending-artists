@@ -14,19 +14,22 @@ For this project, we are using Twitter data that we obtain from the [Twitter Str
 ### Approach
 This project has three main parts. All parts are implemented in Pyspark and Python. 
 
-#### 1.Input Twitter Stream and Kafka
+#### 1. Input Twitter Stream and Kafka
 In this part, input stream data from Twitter’s Streaming API are fed into the Kafka producer. There are two-level filtering in this part. The first filter is calling the Twitter Streaming API using `“spotify com”` keyword. That filter was used so that the acquired tweets contain a URL to a song in Spotify (open.spotify.com). However, due to limitation in the filter function in Twitter API, we need to add another layer of filtering. Hence, we add a condition so that only JSON objects containing URL are processed. Finally, since we are only interested in the creation time and URL of the tweets, we extracted the value of `created_at` and `expanded_url` and feed it as a JSON object to the Kafka Producer with particular topic.
 
 Example of processed tweet:
-```json
-{“created_at”: “Sun Oc 27 18:50:00 +0000 2019”, “expanded_url”: “https://open.spotify.com/track/6BcF4tXjinsT9NBYFoxS6t?si=QgyveJpgTbOl3Fbi8MU-JQ”}
 ```
-#### 2.Consume from Kafka, Get Artist Information from Spotify and Storing to Cassandra
+{
+    “created_at”: “Sun Oc 27 18:50:00 +0000 2019”, 
+    “expanded_url”: “https://open.spotify.com/track/6BcF4tXjinsT9NBYFoxS6t?si=QgyveJpgTbOl3Fbi8MU-JQ”
+}
+```
+#### 2. Consume from Kafka, Get Artist Information from Spotify and Storing to Cassandra
 This part is implemented in Pyspark. A keyspace and table are created in Cassandra (if both don’t exist yet), then the spark context and spark streaming context are defined. A Kafka-Spark integration is required so we can consume the data from the broker. We use receiver-less approach for this which directly queries Kafka for the latest offset of the topic. After receiving data from Kafka, we extract the `track_id` from the `expanded_url` value of each record. This `track_id` is required for acquiring the name of the artist. We send this `track_id` as a parameter for Spotify API call. After getting the artist, we need to filter the RDD containing the record by ditching record with `None` artist value. This filter is to avoid error when inserting the data into Cassandra. Then, we construct the data for insertion to Cassandra so the RDDs contain records with `artist`, `created_at`, and `count` values. `artist` and `created_at` are from the data we previously acquired and we set the count to 1. Finally we write each RDD to Cassandra with saveToCassandra function and keyspace, table as parameters.
 
 ![Cassandra Table](https://github.com/fadhilmch/streaming-spotify-trending-artists/blob/master/assets/cassandraTable.png "Content in Cassandra")
 
-#### 3.Visualization
+#### 3. Visualization
 We create the visualization part in Python using [Plotpy and Dash library](https://plot.ly/dash/). Using these make us possible to live plot the data in real-time on the web browser. We retrieve the data from the Cassandra table every 5 seconds wherein each query we create a new summary table for all data from the past 60 minutes based on the value in `created_at` column. The summary table contains `artist`, `date`, and `total_count` column. To obtain this summary table, first, we group the data by the `artist` column, then we sum the value on the `count` column and put it in the `total_count` column. The date column value is added based on the time when each data is processed. After that, we sort the data by the `total_count` and pick only the top 20 to be visualized.
 
 ### Run the Code
